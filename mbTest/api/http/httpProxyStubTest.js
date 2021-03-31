@@ -4,10 +4,14 @@ const assert = require('assert'),
     fs = require('fs-extra'),
     api = require('../../api').create(),
     client = require('../../baseHttpClient').create('http'),
+    clientSecure = require('../../baseHttpClient').create('https'),
     port = api.port + 1,
     isWindows = require('os').platform().indexOf('win') === 0,
     timeout = isWindows ? 10000 : parseInt(process.env.MB_SLOW_TEST_TIMEOUT || 2000),
-    airplaneMode = process.env.MB_AIRPLANE_MODE === 'true';
+    airplaneMode = process.env.MB_AIRPLANE_MODE === 'true',
+    path = require('path'),
+    key = fs.readFileSync(path.join(__dirname, '../https/cert/key.pem'), 'utf8'),
+    cert = fs.readFileSync(path.join(__dirname, '../https/cert/cert.pem'), 'utf8');
 
 function isInProcessImposter (protocol) {
     if (fs.existsSync('protocols.json')) {
@@ -90,6 +94,46 @@ describe('http proxy stubs', function () {
         assert.strictEqual(response.body, 'ERROR');
     });
 
+    // https://github.com/bbyars/mountebank/issues/600
+    it.only('should handle the connect method', async function () {
+        const proxy = {
+            protocol: 'https',
+            port: port,
+            stubs: [{ responses: [{ proxy: { to: 'https://api.github.com:443', key, cert } }] }] // 'https://api.github.com:443'
+        };
+        await api.createImposter(proxy);
+
+        // const response = await clientSecure.responseFor({
+        //     port: proxy.port,
+        //     host: 'localhost',
+        //     path: '/',
+        //     method: 'GET',
+        //     createConnection: () => {
+        //         console.log('booooooop');
+        // const request = client.responseFor({
+        //     port: proxy.port,
+        //     host: 'localhost',
+        //     path: '/',
+        //     method: 'CONNECT'
+        // }, false);
+        // console.log(request);
+        // request.on('connect', (res, socket, head) => {
+        //     console.dir(res);
+        // });
+        //     }
+        // }, false);
+
+        const response = await clientSecure.responseFor({
+            port: proxy.port,
+            host: 'localhost',
+            method: 'CONNECT'
+        });
+
+        console.log(response);
+        // assert.strictEqual(response.statusCode, 200);
+        // assert.strictEqual(response.body, 'OK');
+    });
+
     it('should update the host header to the origin server', async function () {
         const origin = {
                 protocol: 'http',
@@ -113,9 +157,9 @@ describe('http proxy stubs', function () {
             method: 'GET',
             headers: { host: 'www.mbtest.org' }
         });
-
         assert.strictEqual(response.statusCode, 400);
         assert.strictEqual(response.body, 'ERROR');
+        throw new Error('boop');
     });
 
     if (!airplaneMode) {

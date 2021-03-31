@@ -52,6 +52,21 @@ function create (protocol) {
                 });
             });
 
+            request.on('connect', (res, socket, head) => {
+                // Make a request over an HTTP tunnel
+                socket.write('GET / HTTP/1.1\r\n' +
+                            'Host: api.github.com:443\r\n' +
+                            'Connection: close\r\n' +
+                            '\r\n');
+                socket.on('data', chunk => {
+                    console.log(chunk.toString());
+                });
+                socket.on('end', () => {
+                    // we need to close the connection somehow?
+                    // request.socket.close();
+                });
+            });
+
             request.on('error', reject);
 
             if (spec.body) {
