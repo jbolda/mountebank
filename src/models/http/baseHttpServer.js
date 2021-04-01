@@ -7,6 +7,15 @@
 
 module.exports = function (createBaseServer) {
 
+    process.on('uncaughtException',function (er,type){
+        // Connection closed by other party.
+        // We are "catching" it, and ignoring it
+        // so as not to crash Mountebank
+        if ( er.code !== 'EPIPE' ) {
+            console.error("Type: %s\n%o\n", type, er);
+        }
+    })
+
     function create (options, logger, responseFn) {
         const connections = {},
             defaultResponse = options.defaultResponse || {};
